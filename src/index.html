@@ -21,6 +21,9 @@
                 <div id="profiles-list" class="profiles-list">
                     <!-- Profiles will be added dynamically here -->
                 </div>
+                <div class="sidebar-footer">
+                    <button id="show-settings-btn">Settings</button>
+                </div>
             </div>
 
             <div class="main-content">
@@ -71,6 +74,35 @@
                     <div class="profile-controls">
                         <button id="launch-profile-btn">Launch Profile</button>
                         <button id="stop-profile-btn" style="display: none;">Stop Profile</button>
+                    </div>
+                </div>
+
+                <div id="settings-panel" class="settings-panel" style="display: none;">
+                    <div class="editor-header">
+                        <h2>Settings</h2>
+                        <div class="editor-actions">
+                            <button id="close-settings-btn">Close</button>
+                        </div>
+                    </div>
+
+                    <div class="settings-content">
+                        <div class="settings-section">
+                            <h3>Application</h3>
+                            <p>Version: <span id="app-version">Loading...</span></p>
+                        </div>
+
+                        <div class="settings-section">
+                            <h3>Updates</h3>
+                            <div id="update-status">Checking for updates...</div>
+                            <div id="update-progress" class="progress-bar" style="display: none;">
+                                <div class="progress-fill"></div>
+                            </div>
+                            <div class="update-buttons">
+                                <button id="check-updates-btn">Check for Updates</button>
+                                <button id="download-update-btn" style="display: none;">Download Update</button>
+                                <button id="install-update-btn" style="display: none;">Install Update</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

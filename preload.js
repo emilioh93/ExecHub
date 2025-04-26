@@ -1,22 +1,29 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-// Exponer las APIs seguras para que la interfaz pueda usarlas
+// Expose secure APIs so the interface can use them
 contextBridge.exposeInMainWorld('electronAPI', {
-  // Gestión de perfiles
+  // Profile management
   getProfiles: () => ipcRenderer.invoke('get-profiles'),
   saveProfile: (profile) => ipcRenderer.invoke('save-profile', profile),
   deleteProfile: (profileId) => ipcRenderer.invoke('delete-profile', profileId),
   
-  // Selección de archivos
+  // File selection
   selectFile: () => ipcRenderer.invoke('select-file'),
   
-  // Control de aplicaciones
+  // Application control
   launchProfile: (profileId) => ipcRenderer.invoke('launch-profile', profileId),
   stopProfile: (profileId) => ipcRenderer.invoke('stop-profile', profileId),
-  isProfileRunning: (profileId) => ipcRenderer.invoke('is-profile-running', profileId)
+  isProfileRunning: (profileId) => ipcRenderer.invoke('is-profile-running', profileId),
+  
+  // Updates
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  downloadUpdate: () => ipcRenderer.invoke('download-update'),
+  installUpdate: () => ipcRenderer.invoke('install-update'),
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  onUpdateStatus: (callback) => ipcRenderer.on('update-status', (_event, status) => callback(status))
 });
 
-// También incluimos la funcionalidad para mostrar las versiones
+// Also include functionality to show versions
 window.addEventListener('DOMContentLoaded', () => {
   const replaceText = (selector, text) => {
     const element = document.getElementById(selector)

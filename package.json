@@ -6,6 +6,7 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",
+    "release": "electron-builder --publish always",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -13,17 +14,22 @@
     "profile manager",
     "app manager"
   ],
-  "author": "",
+  "author": "Emilio Ezequiel Hurtado",
   "license": "MIT",
-  "dependencies": {},
+  "dependencies": {
+    "electron-log": "^5.0.1",
+    "electron-updater": "^6.1.7"
+  },
   "devDependencies": {
+    "electron": "^35.2.1",
     "electron-builder": "^24.7.0"
   },
   "build": {
     "appId": "com.exechub.app",
     "productName": "ExecHub",
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -31,6 +37,17 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "shortcutName": "ExecHub"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "emilioh93",
+        "repo": "ExecHub"
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/emilioh93/ExecHub.git"
   }
 }

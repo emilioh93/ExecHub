@@ -16,6 +16,7 @@ ExecHub is a lightweight desktop application that allows you to create profiles 
 - **Application Management**: Add multiple applications to each profile.
 - **One-Click Launch**: Start all applications associated with a profile with a single click.
 - **Joint Closure**: Easily close all applications associated with a profile.
+- **Automatic Updates**: Get notified and seamlessly update to the latest version.
 - **Intuitive Interface**: Simple and easy-to-use user interface.
 - **Low Resource Consumption**: Designed to be lightweight and consume minimal system resources.
 
@@ -23,7 +24,7 @@ ExecHub is a lightweight desktop application that allows you to create profiles 
 
 ### From Releases
 
-1. Download the latest version from the [releases](https://github.com/yourusername/ExecHub/releases) section.
+1. Download the latest version from the [releases](https://github.com/emilioh93/ExecHub/releases) section.
 2. Run the installer and follow the instructions.
 3. Launch ExecHub from the Start menu or desktop shortcut.
 
@@ -31,7 +32,7 @@ ExecHub is a lightweight desktop application that allows you to create profiles 
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/ExecHub.git
+git clone https://github.com/emilioh93/ExecHub.git
 
 # Navigate into project directory
 cd ExecHub
@@ -58,6 +59,19 @@ npm start
    - Select the running profile
    - Click "Stop Profile"
 
+4. **Check for Updates**:
+   - Click "Settings" in the sidebar
+   - Click "Check for Updates"
+   - If an update is available, download and install it
+
+## 🔄 Updates
+
+ExecHub includes an automatic update system that:
+
+1. Periodically checks for new versions
+2. Notifies you when an update is available
+3. Allows you to download and install updates with one click
+
 ## 🛠️ Development
 
 ### Requirements
@@ -77,7 +91,7 @@ npm run build
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please check out our [Contributing Guide](.github/CONTRIBUTING.md) for details.
+Contributions are welcome! Please open an issue or submit a pull request.
 
 ## 📜 License
 

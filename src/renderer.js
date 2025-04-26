@@ -26,9 +26,24 @@ const profileItemTemplate = document.getElementById('profile-item-template');
 const applicationItemTemplate = document.getElementById('application-item-template');
 const viewApplicationItemTemplate = document.getElementById('view-application-item-template');
 
+// DOM References for settings and updates
+const showSettingsBtn = document.getElementById('show-settings-btn');
+const settingsPanel = document.getElementById('settings-panel');
+const closeSettingsBtn = document.getElementById('close-settings-btn');
+const appVersionEl = document.getElementById('app-version');
+const updateStatusEl = document.getElementById('update-status');
+const updateProgressEl = document.getElementById('update-progress');
+const progressFillEl = updateProgressEl.querySelector('.progress-fill');
+const checkUpdatesBtn = document.getElementById('check-updates-btn');
+const downloadUpdateBtn = document.getElementById('download-update-btn');
+const installUpdateBtn = document.getElementById('install-update-btn');
+
 // Initialization
 document.addEventListener('DOMContentLoaded', async () => {
     await refreshProfilesList();
+    
+    // Initialize update features
+    initUpdateFeatures();
     
     // Periodically check profile status
     setInterval(updateProfilesStatus, 2000);
@@ -335,4 +350,130 @@ stopProfileBtn.addEventListener('click', async () => {
         stopProfileBtn.textContent = 'Stop Profile';
         stopProfileBtn.disabled = false;
     }
-}); 
+});
+
+// Initialize update features
+async function initUpdateFeatures() {
+    // Get and display current app version
+    try {
+        const version = await window.electronAPI.getAppVersion();
+        appVersionEl.textContent = version;
+    } catch (error) {
+        appVersionEl.textContent = 'Unknown';
+        console.error('Error getting app version:', error);
+    }
+
+    // Listen for update events from main process
+    window.electronAPI.onUpdateStatus(handleUpdateStatus);
+
+    // Setup event listeners
+    showSettingsBtn.addEventListener('click', showSettings);
+    closeSettingsBtn.addEventListener('click', hideSettings);
+    checkUpdatesBtn.addEventListener('click', checkForUpdates);
+    downloadUpdateBtn.addEventListener('click', downloadUpdate);
+    installUpdateBtn.addEventListener('click', installUpdate);
+}
+
+// Show settings panel
+function showSettings() {
+    emptyState.style.display = 'none';
+    profileEditor.style.display = 'none';
+    profileView.style.display = 'none';
+    settingsPanel.style.display = 'block';
+    
+    // Reset current profile selection
+    currentProfileId = null;
+    document.querySelectorAll('.profile-item').forEach(item => {
+        item.classList.remove('selected');
+    });
+}
+
+// Hide settings panel
+function hideSettings() {
+    settingsPanel.style.display = 'none';
+    emptyState.style.display = 'block';
+}
+
+// Check for updates
+async function checkForUpdates() {
+    try {
+        updateStatusEl.textContent = 'Checking for updates...';
+        updateStatusEl.className = '';
+        downloadUpdateBtn.style.display = 'none';
+        installUpdateBtn.style.display = 'none';
+        
+        await window.electronAPI.checkForUpdates();
+    } catch (error) {
+        updateStatusEl.textContent = `Error checking for updates: ${error.message}`;
+        updateStatusEl.className = 'update-error';
+    }
+}
+
+// Download available update
+async function downloadUpdate() {
+    try {
+        updateStatusEl.textContent = 'Starting download...';
+        updateStatusEl.className = 'update-downloading';
+        updateProgressEl.style.display = 'block';
+        progressFillEl.style.width = '0%';
+        
+        await window.electronAPI.downloadUpdate();
+    } catch (error) {
+        updateStatusEl.textContent = `Error downloading update: ${error.message}`;
+        updateStatusEl.className = 'update-error';
+        updateProgressEl.style.display = 'none';
+    }
+}
+
+// Install downloaded update
+function installUpdate() {
+    try {
+        updateStatusEl.textContent = 'Installing update...';
+        window.electronAPI.installUpdate();
+    } catch (error) {
+        updateStatusEl.textContent = `Error installing update: ${error.message}`;
+        updateStatusEl.className = 'update-error';
+    }
+}
+
+// Handle update status events from main process
+function handleUpdateStatus(status) {
+    switch (status.status) {
+        case 'checking':
+            updateStatusEl.textContent = 'Checking for updates...';
+            updateStatusEl.className = '';
+            break;
+            
+        case 'available':
+            updateStatusEl.textContent = `Update available: v${status.version}`;
+            updateStatusEl.className = 'update-available';
+            downloadUpdateBtn.style.display = 'block';
+            break;
+            
+        case 'not-available':
+            updateStatusEl.textContent = 'No updates available. You have the latest version.';
+            updateStatusEl.className = '';
+            break;
+            
+        case 'downloading':
+            updateStatusEl.textContent = `Downloading update: ${Math.round(status.percent)}%`;
+            updateStatusEl.className = 'update-downloading';
+            updateProgressEl.style.display = 'block';
+            progressFillEl.style.width = `${status.percent}%`;
+            break;
+            
+        case 'downloaded':
+            updateStatusEl.textContent = `Update downloaded. Ready to install version ${status.version}`;
+            updateStatusEl.className = 'update-downloaded';
+            updateProgressEl.style.display = 'none';
+            downloadUpdateBtn.style.display = 'none';
+            installUpdateBtn.style.display = 'block';
+            break;
+            
+        case 'error':
+            updateStatusEl.textContent = `Update error: ${status.error}`;
+            updateStatusEl.className = 'update-error';
+            updateProgressEl.style.display = 'none';
+            break;
+    }
+} 

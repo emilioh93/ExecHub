@@ -271,4 +271,96 @@ button:hover {
 
 .message.error {
     background-color: #dc3545;
+}
+
+/* Settings Panel */
+.settings-panel {
+    padding: 20px;
+}
+
+.settings-content {
+    margin-top: 20px;
+}
+
+.settings-section {
+    margin-bottom: 30px;
+    padding: 15px;
+    background: #f5f5f5;
+    border-radius: 5px;
+}
+
+.settings-section h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+#update-status {
+    margin-bottom: 15px;
+    padding: 10px;
+    background: #eee;
+    border-radius: 4px;
+}
+
+.update-buttons {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+}
+
+.progress-bar {
+    height: 20px;
+    background-color: #e0e0e0;
+    border-radius: 10px;
+    margin: 10px 0;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: #4CAF50;
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.sidebar-footer {
+    margin-top: auto;
+    padding: 15px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.sidebar-footer button {
+    width: 100%;
+    padding: 8px;
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.sidebar-footer button:hover {
+    background-color: #e0e0e0;
+}
+
+/* Update notification */
+.update-available {
+    background-color: #e8f5e9 !important;
+    border-left: 4px solid #4CAF50;
+}
+
+.update-error {
+    background-color: #ffebee !important;
+    border-left: 4px solid #f44336;
+}
+
+.update-downloading {
+    background-color: #e3f2fd !important;
+    border-left: 4px solid #2196F3;
+}
+
+.update-downloaded {
+    background-color: #e8f5e9 !important;
+    border-left: 4px solid #4CAF50;
+    font-weight: bold;
 } 

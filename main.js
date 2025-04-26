@@ -2,6 +2,12 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn, exec } = require('child_process');
+const { autoUpdater } = require('electron-updater');
+
+// Auto updater configuration
+autoUpdater.logger = require('electron-log');
+autoUpdater.logger.transports.file.level = 'info';
+autoUpdater.autoDownload = false;
 
 // Data file path
 const documentsPath = app.getPath('documents');
@@ -86,9 +92,57 @@ function createWindow() {
   // mainWindow.webContents.openDevTools();
 }
 
+// Setup auto-updater events
+function setupAutoUpdater() {
+  autoUpdater.on('checking-for-update', () => {
+    mainWindow.webContents.send('update-status', { status: 'checking' });
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    mainWindow.webContents.send('update-status', { 
+      status: 'available',
+      version: info.version,
+      releaseNotes: info.releaseNotes
+    });
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    mainWindow.webContents.send('update-status', { status: 'not-available' });
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    mainWindow.webContents.send('update-status', {
+      status: 'downloading',
+      percent: progressObj.percent
+    });
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    mainWindow.webContents.send('update-status', {
+      status: 'downloaded',
+      version: info.version
+    });
+  });
+
+  autoUpdater.on('error', (err) => {
+    mainWindow.webContents.send('update-status', {
+      status: 'error',
+      error: err.toString()
+    });
+  });
+}
+
 // Create window when app is ready
 app.whenReady().then(() => {
   createWindow();
+  setupAutoUpdater();
+  
+  // Check for updates after a delay (to not slow down app startup)
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch(err => {
+      console.error('Error checking for updates:', err);
+    });
+  }, 3000);
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -324,4 +378,33 @@ ipcMain.handle('stop-profile', (event, profileId) => {
 ipcMain.handle('is-profile-running', (event, profileId) => {
   const processes = runningProcesses.get(profileId) || [];
   return processes.length > 0;
+});
+
+// IPC Handlers for updates
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    return await autoUpdater.checkForUpdates();
+  } catch (error) {
+    console.error('Error checking for updates:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('download-update', async () => {
+  try {
+    autoUpdater.downloadUpdate();
+    return true;
+  } catch (error) {
+    console.error('Error downloading update:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('install-update', () => {
+  autoUpdater.quitAndInstall(false, true);
+  return true;
+});
+
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
 }); 
