@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>ExecHub - Application Profile Manager</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ExecHub</h1>
+            <p>Application Profile Manager</p>
+        </header>
+
+        <div class="app-content">
+            <div class="sidebar">
+                <div class="profiles-header">
+                    <h2>Profiles</h2>
+                    <button id="new-profile-btn">New Profile</button>
+                </div>
+                <div id="profiles-list" class="profiles-list">
+                    <!-- Profiles will be added dynamically here -->
+                </div>
+            </div>
+
+            <div class="main-content">
+                <div id="empty-state" class="empty-state">
+                    <h3>Select a profile or create a new one</h3>
+                    <p>Profiles allow you to launch and close multiple applications with a single click.</p>
+                </div>
+
+                <div id="profile-editor" class="profile-editor" style="display: none;">
+                    <div class="editor-header">
+                        <h2>Edit Profile</h2>
+                        <div class="editor-actions">
+                            <button id="save-profile-btn">Save</button>
+                            <button id="cancel-edit-btn">Cancel</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="profile-name">Profile Name</label>
+                        <input type="text" id="profile-name" placeholder="Ex: iRacing">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Applications</label>
+                        <div id="applications-list" class="applications-list">
+                            <!-- Applications will be added dynamically here -->
+                        </div>
+                        <button id="add-application-btn">Add Application</button>
+                    </div>
+                </div>
+
+                <div id="profile-view" class="profile-view" style="display: none;">
+                    <div class="view-header">
+                        <h2 id="view-profile-name"></h2>
+                        <div class="view-actions">
+                            <button id="edit-profile-btn">Edit</button>
+                            <button id="delete-profile-btn">Delete</button>
+                        </div>
+                    </div>
+
+                    <div class="profile-apps">
+                        <h3>Applications</h3>
+                        <ul id="view-applications-list">
+                            <!-- Applications will be added dynamically here -->
+                        </ul>
+                    </div>
+
+                    <div class="profile-controls">
+                        <button id="launch-profile-btn">Launch Profile</button>
+                        <button id="stop-profile-btn" style="display: none;">Stop Profile</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <div class="version-info">
+                <small>Versions: Chrome <span id="chrome-version"></span> | Node <span id="node-version"></span> | Electron <span id="electron-version"></span></small>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Templates for dynamic elements -->
+    <template id="profile-item-template">
+        <div class="profile-item">
+            <span class="profile-name"></span>
+            <span class="profile-status"></span>
+        </div>
+    </template>
+
+    <template id="application-item-template">
+        <div class="application-item">
+            <span class="app-name"></span>
+            <div class="app-actions">
+                <button class="browse-app-btn">📂</button>
+                <button class="remove-app-btn">❌</button>
+            </div>
+        </div>
+    </template>
+
+    <template id="view-application-item-template">
+        <li class="view-application-item">
+            <span class="app-name"></span>
+            <span class="app-path"></span>
+        </li>
+    </template>
+
+    <script src="renderer.js"></script>
+</body>
+</html> 

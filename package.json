@@ -1,0 +1,30 @@
+{
+  "name": "exechub",
+  "version": "1.0.0",
+  "description": "A lightweight application profile manager",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "launcher",
+    "profile manager",
+    "app manager"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "electron-builder": "^24.7.0"
+  },
+  "build": {
+    "appId": "com.exechub.app",
+    "productName": "ExecHub",
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    }
+  }
+}
