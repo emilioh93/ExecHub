@@ -4,8 +4,9 @@ const fs = require('fs');
 const { spawn, exec } = require('child_process');
 
 // Data file path
-const userDataPath = app.getPath('userData');
-const profilesPath = path.join(userDataPath, 'profiles.json');
+const documentsPath = app.getPath('documents');
+const exechubFolder = path.join(documentsPath, 'ExecHub');
+const profilesPath = path.join(exechubFolder, 'profiles.json');
 
 // Map to track running processes
 const runningProcesses = new Map();
@@ -20,7 +21,7 @@ function saveProfiles(profiles) {
     }
     // Save as array
     fs.writeFileSync(profilesPath, JSON.stringify(profiles || []), 'utf8');
-    console.log('Profiles saved successfully');
+    console.log('Profiles saved successfully in:', profilesPath);
   } catch (error) {
     console.error('Error saving profiles:', error);
   }
@@ -28,6 +29,7 @@ function saveProfiles(profiles) {
 
 function loadProfiles() {
   try {
+    // Primero, verificar si el archivo existe en la nueva ubicación
     if (fs.existsSync(profilesPath)) {
       const data = fs.readFileSync(profilesPath, 'utf8');
       try {
@@ -36,6 +38,27 @@ function loadProfiles() {
       } catch (parseError) {
         console.error('Error parsing JSON:', parseError);
         return [];
+      }
+    } else {
+      // Si no existe en la nueva ubicación, verificar si existe en la ubicación antigua
+      const oldUserDataPath = app.getPath('userData');
+      const oldProfilesPath = path.join(oldUserDataPath, 'profiles.json');
+      
+      if (fs.existsSync(oldProfilesPath)) {
+        console.log('Migrating profiles from old location to Documents folder...');
+        try {
+          // Leer los datos antiguos
+          const oldData = fs.readFileSync(oldProfilesPath, 'utf8');
+          const oldProfiles = JSON.parse(oldData);
+          
+          // Guardarlos en la nueva ubicación
+          saveProfiles(oldProfiles);
+          
+          console.log('Profiles successfully migrated to:', profilesPath);
+          return Array.isArray(oldProfiles) ? oldProfiles : [];
+        } catch (migrationError) {
+          console.error('Error migrating profiles:', migrationError);
+        }
       }
     }
   } catch (error) {
