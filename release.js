@@ -1,10 +1,11 @@
 require("dotenv").config();
-const inquirer = require("inquirer");
 const shell = require("shelljs");
 const builder = require("electron-builder");
 
 (async () => {
-    const { bump } = await inquirer.prompt([
+    const inquirer = await import("inquirer");
+    
+    const { bump } = await inquirer.default.prompt([
         {
             type: "list",
             name: "bump",
