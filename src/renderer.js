@@ -81,6 +81,44 @@ async function updateProfilesStatus() {
         if (currentProfileId === profile.id) {
             launchProfileBtn.style.display = isRunning ? 'none' : 'block';
             stopProfileBtn.style.display = isRunning ? 'block' : 'none';
+            
+            // Update individual app status
+            await updateIndividualAppsStatus(profile);
+        }
+    }
+}
+
+// Update individual apps status
+async function updateIndividualAppsStatus(profile) {
+    if (!profile.applications) return;
+    
+    for (let i = 0; i < profile.applications.length; i++) {
+        try {
+            const isAppRunning = await window.electronAPI.isAppRunning(profile.id, i);
+            const appItem = document.querySelector(`.view-application-item[data-app-index="${i}"]`);
+            
+            if (appItem) {
+                const statusEl = appItem.querySelector('.app-status');
+                const launchBtn = appItem.querySelector('.launch-app-btn');
+                const stopBtn = appItem.querySelector('.stop-app-btn');
+                
+                statusEl.classList.toggle('running', isAppRunning);
+                statusEl.classList.toggle('stopped', !isAppRunning);
+                
+                // Update button states and text
+                launchBtn.disabled = isAppRunning;
+                stopBtn.disabled = !isAppRunning;
+                
+                // Restore button text if they were showing loading state
+                if (launchBtn.textContent === '⏳') {
+                    launchBtn.textContent = '▶️';
+                }
+                if (stopBtn.textContent === '⏳') {
+                    stopBtn.textContent = '⏹️';
+                }
+            }
+        } catch (error) {
+            console.error(`Error checking app ${i} status:`, error);
         }
     }
 }
@@ -162,15 +200,78 @@ function renderViewApplications(applications) {
         return;
     }
     
-    applications.forEach(app => {
+    applications.forEach((app, index) => {
         const clone = document.importNode(viewApplicationItemTemplate.content, true);
         const item = clone.querySelector('.view-application-item');
         
+        item.dataset.appIndex = index;
         item.querySelector('.app-name').textContent = app.name;
         item.querySelector('.app-path').textContent = app.path;
         
+        // Set up status indicator
+        const statusEl = item.querySelector('.app-status');
+        statusEl.classList.add('stopped'); // Default to stopped
+        
+        // Set up individual launch button
+        const launchBtn = item.querySelector('.launch-app-btn');
+        launchBtn.addEventListener('click', async () => {
+            if (!currentProfileId) return;
+            
+            try {
+                launchBtn.textContent = '⏳';
+                launchBtn.disabled = true;
+                
+                await window.electronAPI.launchApp(currentProfileId, index);
+                showMessage(`${app.name} launched successfully`);
+                
+                // Update status immediately
+                const profile = currentProfiles.find(p => p.id === currentProfileId);
+                if (profile) {
+                    await updateIndividualAppsStatus(profile);
+                }
+            } catch (error) {
+                showMessage(`Error launching ${app.name}: ${error.message}`, true);
+                // Restore button state on error
+                launchBtn.textContent = '▶️';
+                launchBtn.disabled = false;
+            }
+        });
+        
+        // Set up individual stop button
+        const stopBtn = item.querySelector('.stop-app-btn');
+        stopBtn.addEventListener('click', async () => {
+            if (!currentProfileId) return;
+            
+            try {
+                stopBtn.textContent = '⏳';
+                stopBtn.disabled = true;
+                
+                await window.electronAPI.stopApp(currentProfileId, index);
+                showMessage(`${app.name} stopped successfully`);
+                
+                // Update status immediately
+                const profile = currentProfiles.find(p => p.id === currentProfileId);
+                if (profile) {
+                    await updateIndividualAppsStatus(profile);
+                }
+            } catch (error) {
+                showMessage(`Error stopping ${app.name}: ${error.message}`, true);
+                // Restore button state on error
+                stopBtn.textContent = '⏹️';
+                stopBtn.disabled = false;
+            }
+        });
+        
         viewApplicationsList.appendChild(clone);
     });
+    
+    // Update the status of all apps after rendering
+    if (currentProfileId) {
+        const profile = currentProfiles.find(p => p.id === currentProfileId);
+        if (profile) {
+            setTimeout(() => updateIndividualAppsStatus(profile), 100);
+        }
+    }
 }
 
 // Render applications in editor
@@ -323,8 +424,31 @@ launchProfileBtn.addEventListener('click', async () => {
         launchProfileBtn.textContent = 'Launching...';
         launchProfileBtn.disabled = true;
         
+        // Get current profile to check how many apps are already running
+        const profile = currentProfiles.find(p => p.id === currentProfileId);
+        let runningCount = 0;
+        if (profile && profile.applications) {
+            for (let i = 0; i < profile.applications.length; i++) {
+                const isRunning = await window.electronAPI.isAppRunning(currentProfileId, i);
+                if (isRunning) runningCount++;
+            }
+        }
+        
         await window.electronAPI.launchProfile(currentProfileId);
-        showMessage('Profile launched successfully');
+        
+        const totalApps = profile?.applications?.length || 0;
+        const newlyLaunched = totalApps - runningCount;
+        
+        if (newlyLaunched > 0) {
+            if (runningCount > 0) {
+                showMessage(`Profile launched: ${newlyLaunched} new app(s) started, ${runningCount} already running`);
+            } else {
+                showMessage('Profile launched successfully');
+            }
+        } else {
+            showMessage('All applications in this profile are already running');
+        }
+        
         updateProfilesStatus();
     } catch (error) {
         showMessage(`Error launching profile: ${error.message}`, true);

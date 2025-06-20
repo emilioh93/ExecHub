@@ -16,6 +16,8 @@ const profilesPath = path.join(exechubFolder, 'profiles.json');
 
 // Map to track running processes
 const runningProcesses = new Map();
+// Map to track individual app processes: profileId -> { appIndex: [processes] }
+const runningAppProcesses = new Map();
 
 // Data storage functions
 function saveProfiles(profiles) {
@@ -156,6 +158,7 @@ app.on('window-all-closed', function () {
 
 // Close all processes on exit
 app.on('before-quit', () => {
+  // Close profile processes
   for (const [profileId, processes] of runningProcesses.entries()) {
     for (const proc of processes) {
       try {
@@ -166,6 +169,25 @@ app.on('before-quit', () => {
         }
       } catch (error) {
         console.error(`Error closing process: ${error}`);
+      }
+    }
+  }
+  
+  // Close individual app processes
+  for (const [profileId, profileApps] of runningAppProcesses.entries()) {
+    for (const [appIndex, processes] of Object.entries(profileApps)) {
+      for (const proc of processes) {
+        try {
+          if (proc.pid) {
+            if (process.platform === 'win32') {
+              exec(`taskkill /pid ${proc.pid} /T /F`);
+            } else {
+              proc.kill('SIGTERM');
+            }
+          }
+        } catch (error) {
+          console.error(`Error closing individual app process: ${error}`);
+        }
       }
     }
   }
@@ -235,8 +257,24 @@ ipcMain.handle('launch-profile', (event, profileId) => {
   const processes = [];
   runningProcesses.set(profileId, processes);
 
-  // Launch each application in the profile
-  for (const app of profile.applications || []) {
+  // Initialize individual app processes map if it doesn't exist
+  if (!runningAppProcesses.has(profileId)) {
+    runningAppProcesses.set(profileId, {});
+  }
+  const profileApps = runningAppProcesses.get(profileId);
+
+  // Launch each application in the profile (only if not already running)
+  for (let i = 0; i < (profile.applications || []).length; i++) {
+    const app = profile.applications[i];
+    
+    // Check if this individual app is already running
+    const isAppAlreadyRunning = (profileApps[i] && profileApps[i].length > 0);
+    
+    if (isAppAlreadyRunning) {
+      console.log(`Skipping ${app.name} - already running`);
+      continue; // Skip this app if it's already running
+    }
+    
     try {
       const appPath = app.path;
       
@@ -245,6 +283,11 @@ ipcMain.handle('launch-profile', (event, profileId) => {
       if (!fs.existsSync(appPath)) {
         console.error(`Application does not exist: ${appPath}`);
         continue;
+      }
+
+      // Initialize app processes array if it doesn't exist
+      if (!profileApps[i]) {
+        profileApps[i] = [];
       }
 
       // On Windows, use the shell API to open the application
@@ -256,6 +299,7 @@ ipcMain.handle('launch-profile', (event, profileId) => {
           });
           
           processes.push(childProcess);
+          profileApps[i].push(childProcess);
           
           childProcess.on('error', (err) => {
             console.error(`Error launching ${appPath}: ${err.message}`);
@@ -271,6 +315,7 @@ ipcMain.handle('launch-profile', (event, profileId) => {
               
               spawnProcess.unref(); // Disconnect the process from the parent process
               processes.push(spawnProcess);
+              profileApps[i].push(spawnProcess);
             } catch (spawnError) {
               console.error(`Error in alternative attempt: ${spawnError.message}`);
             }
@@ -284,6 +329,8 @@ ipcMain.handle('launch-profile', (event, profileId) => {
               detached: true
             });
             console.log(`Launched ${appPath} with execFile`);
+            // Add placeholder since we can't track this process
+            profileApps[i].push({});
           } catch (electronError) {
             console.error(`Error launching with Electron: ${electronError.message}`);
           }
@@ -298,6 +345,7 @@ ipcMain.handle('launch-profile', (event, profileId) => {
         
         childProcess.unref(); // Disconnect the process from the parent process
         processes.push(childProcess);
+        profileApps[i].push(childProcess);
       }
       
     } catch (error) {
@@ -371,6 +419,10 @@ ipcMain.handle('stop-profile', (event, profileId) => {
   }
   
   runningProcesses.delete(profileId);
+  
+  // Also clean up individual app processes tracking
+  runningAppProcesses.delete(profileId);
+  
   return true;
 });
 
@@ -407,4 +459,178 @@ ipcMain.handle('install-update', () => {
 
 ipcMain.handle('get-app-version', () => {
   return app.getVersion();
+});
+
+// Launch individual application
+ipcMain.handle('launch-app', (event, profileId, appIndex) => {
+  const profiles = loadProfiles();
+  const profile = profiles.find(p => p.id === profileId);
+  
+  if (!profile || !profile.applications || !profile.applications[appIndex]) {
+    throw new Error('Application not found');
+  }
+
+  const app = profile.applications[appIndex];
+  const appPath = app.path;
+  
+  console.log(`Attempting to launch individual app: ${appPath}`);
+  
+  if (!fs.existsSync(appPath)) {
+    throw new Error(`Application does not exist: ${appPath}`);
+  }
+
+  // Initialize profile app processes map if it doesn't exist
+  if (!runningAppProcesses.has(profileId)) {
+    runningAppProcesses.set(profileId, {});
+  }
+  
+  const profileApps = runningAppProcesses.get(profileId);
+  if (!profileApps[appIndex]) {
+    profileApps[appIndex] = [];
+  }
+
+  try {
+    // On Windows, use the shell API to open the application
+    if (process.platform === 'win32') {
+      try {
+        // Run the application using the Windows native shell
+        const childProcess = exec(`start "" "${appPath}"`, {
+          windowsHide: false
+        });
+        
+        profileApps[appIndex].push(childProcess);
+        
+        childProcess.on('error', (err) => {
+          console.error(`Error launching ${appPath}: ${err.message}`);
+          
+          // Alternative attempt with spawn
+          try {
+            const spawnProcess = spawn('cmd.exe', ['/c', 'start', '""', `"${appPath}"`], {
+              detached: true,
+              shell: true,
+              windowsHide: false,
+              stdio: 'ignore'
+            });
+            
+            spawnProcess.unref(); // Disconnect the process from the parent process
+            profileApps[appIndex].push(spawnProcess);
+          } catch (spawnError) {
+            console.error(`Error in alternative attempt: ${spawnError.message}`);
+          }
+        });
+      } catch (execError) {
+        console.error(`Error executing with exec: ${execError.message}`);
+        
+        // Alternative attempt with Electron API
+        try {
+          require('child_process').execFile(appPath, [], {
+            detached: true
+          });
+          console.log(`Launched ${appPath} with execFile`);
+          // Add placeholder since we can't track this process
+          profileApps[appIndex].push({});
+        } catch (electronError) {
+          console.error(`Error launching with Electron: ${electronError.message}`);
+          throw new Error(`Failed to launch application: ${electronError.message}`);
+        }
+      }
+    } else {
+      // On other operating systems
+      const childProcess = spawn(appPath, [], {
+        detached: true,
+        shell: true,
+        stdio: 'ignore'
+      });
+      
+      childProcess.unref(); // Disconnect the process from the parent process
+      profileApps[appIndex].push(childProcess);
+    }
+    
+    // Simulate that the process is running for the interface
+    setTimeout(() => {
+      updateAppRunningStatus(profileId, appIndex);
+    }, 1000);
+    
+    return true;
+  } catch (error) {
+    console.error(`General error launching application: ${error.message}`);
+    throw error;
+  }
+});
+
+// Helper function to update app running status
+function updateAppRunningStatus(profileId, appIndex) {
+  if (!runningAppProcesses.has(profileId)) {
+    runningAppProcesses.set(profileId, {});
+  }
+  
+  const profileApps = runningAppProcesses.get(profileId);
+  if (!profileApps[appIndex] || profileApps[appIndex].length === 0) {
+    // If no processes are detected, simulate they're running
+    // This is necessary because some launch methods do not allow
+    // tracking the actual process
+    profileApps[appIndex] = [{}]; // Add an empty object as placeholder
+  }
+}
+
+// Stop individual application
+ipcMain.handle('stop-app', (event, profileId, appIndex) => {
+  const profiles = loadProfiles();
+  const profile = profiles.find(p => p.id === profileId);
+  
+  if (!profile || !profile.applications || !profile.applications[appIndex]) {
+    throw new Error('Application not found');
+  }
+
+  const app = profile.applications[appIndex];
+  const profileApps = runningAppProcesses.get(profileId) || {};
+  const processes = profileApps[appIndex] || [];
+  
+  // Special for Windows: get processes by filename
+  if (process.platform === 'win32') {
+    try {
+      const appPath = app.path;
+      const fileName = path.basename(appPath);
+      
+      // Try to kill the process by filename
+      exec(`taskkill /F /IM "${fileName}"`, (error, stdout, stderr) => {
+        if (error) {
+          console.error(`Error stopping ${fileName}: ${error.message}`);
+        } else {
+          console.log(`Process ${fileName} stopped: ${stdout}`);
+        }
+      });
+    } catch (error) {
+      console.error(`Error getting filename: ${error.message}`);
+    }
+  }
+  
+  // Additionally, try to kill registered processes
+  for (const proc of processes) {
+    try {
+      if (proc.pid) { // Only if it has a valid PID
+        if (process.platform === 'win32') {
+          exec(`taskkill /pid ${proc.pid} /T /F`);
+        } else {
+          proc.kill('SIGTERM');
+        }
+      }
+    } catch (error) {
+      console.error(`Error stopping process: ${error.message}`);
+    }
+  }
+  
+  // Clear the processes for this app
+  if (profileApps[appIndex]) {
+    profileApps[appIndex] = [];
+  }
+  
+  return true;
+});
+
+// Check if individual app is running
+ipcMain.handle('is-app-running', (event, profileId, appIndex) => {
+  const profileApps = runningAppProcesses.get(profileId) || {};
+  const processes = profileApps[appIndex] || [];
+  return processes.length > 0;
 }); 

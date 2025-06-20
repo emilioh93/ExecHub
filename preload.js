@@ -15,6 +15,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stopProfile: (profileId) => ipcRenderer.invoke('stop-profile', profileId),
   isProfileRunning: (profileId) => ipcRenderer.invoke('is-profile-running', profileId),
   
+  // Individual application control
+  launchApp: (profileId, appIndex) => ipcRenderer.invoke('launch-app', profileId, appIndex),
+  stopApp: (profileId, appIndex) => ipcRenderer.invoke('stop-app', profileId, appIndex),
+  isAppRunning: (profileId, appIndex) => ipcRenderer.invoke('is-app-running', profileId, appIndex),
+  
   // Updates
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
