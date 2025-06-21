@@ -1,6 +1,6 @@
 {
   "name": "exechub",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "A lightweight application profile manager",
   "main": "main.js",
   "scripts": {
