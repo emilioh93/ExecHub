@@ -3,17 +3,27 @@ const path = require('path');
 const fs = require('fs');
 const { spawn, exec } = require('child_process');
 const { autoUpdater } = require('electron-updater');
+require('dotenv').config();
 
 // Auto updater configuration
 autoUpdater.logger = require('electron-log');
 autoUpdater.logger.transports.file.level = 'info';
 autoUpdater.autoDownload = false;
 
-// Configure for private repository if GH_TOKEN is available
+// Configure for GitHub releases
 if (process.env.GH_TOKEN) {
+  // Set the token for GitHub API requests
+  process.env.GH_TOKEN = process.env.GH_TOKEN;
+  
+  // Configure electron-updater for authenticated requests
   autoUpdater.requestHeaders = {
-    'Authorization': `token ${process.env.GH_TOKEN}`
+    'Authorization': `token ${process.env.GH_TOKEN}`,
+    'User-Agent': 'ExecHub-Updater'
   };
+  
+  console.log('Configured auto-updater with authentication');
+} else {
+  console.warn('GH_TOKEN not found - using public repository access');
 }
 
 // Data file path
@@ -148,13 +158,15 @@ app.whenReady().then(() => {
   createWindow();
   setupAutoUpdater();
   
-  // Check for updates after a delay (to not slow down app startup)
+  // Check for updates after a delay (to not slow down app startup)  
   setTimeout(() => {
     autoUpdater.checkForUpdates().catch(err => {
-      // Only log error if it's not a 404 (which happens with private repos)
-      if (!err.message.includes('404')) {
-        console.error('Error checking for updates:', err);
+      // Silently ignore 404 errors for now, log others
+      if (err.message && err.message.includes('404')) {
+        console.log('Updates: No releases found yet');
+        return;
       }
+      console.error('Error checking for updates:', err);
     });
   }, 3000);
 
