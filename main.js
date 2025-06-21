@@ -153,6 +153,36 @@ function setupAutoUpdater() {
       status: 'downloaded',
       version: info.version
     });
+    
+    // Show notification that update is ready
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Update Ready',
+      message: `ExecHub v${info.version} has been downloaded.`,
+      detail: 'The application will restart to apply the update.',
+      buttons: ['Restart Now', 'Later'],
+      defaultId: 0
+    }).then((result) => {
+      if (result.response === 0) {
+        // Close all processes first
+        for (const [profileId, processes] of runningProcesses.entries()) {
+          for (const proc of processes) {
+            try {
+              if (process.platform === 'win32') {
+                exec(`taskkill /pid ${proc.pid} /T /F`);
+              } else {
+                proc.kill('SIGTERM');
+              }
+            } catch (error) {
+              console.error(`Error closing process: ${error}`);
+            }
+          }
+        }
+        
+        // Install update and restart
+        autoUpdater.quitAndInstall(false, true);
+      }
+    });
   });
 
   autoUpdater.on('error', (err) => {
