@@ -528,8 +528,14 @@ async function checkForUpdates() {
         
         await window.electronAPI.checkForUpdates();
     } catch (error) {
-        updateStatusEl.textContent = `Error checking for updates: ${error.message}`;
-        updateStatusEl.className = 'update-error';
+        // Handle 404 errors gracefully (common with new repos)
+        if (error.message && error.message.includes('404')) {
+            updateStatusEl.textContent = 'No updates available. No releases found.';
+            updateStatusEl.className = '';
+        } else {
+            updateStatusEl.textContent = `Error checking for updates: ${error.message}`;
+            updateStatusEl.className = 'update-error';
+        }
     }
 }
 
