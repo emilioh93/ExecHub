@@ -3,7 +3,6 @@ const path = require('path');
 const fs = require('fs');
 const { spawn, exec } = require('child_process');
 const { autoUpdater } = require('electron-updater');
-require('dotenv').config();
 
 // Auto updater configuration
 autoUpdater.logger = require('electron-log');
@@ -11,6 +10,13 @@ autoUpdater.logger.transports.file.level = 'info';
 autoUpdater.autoDownload = false;
 
 // Configure for GitHub releases
+// Only load dotenv in development
+try {
+  require('dotenv').config();
+} catch (error) {
+  // dotenv not available in production - that's ok
+}
+
 if (process.env.GH_TOKEN) {
   // Set the token for GitHub API requests
   process.env.GH_TOKEN = process.env.GH_TOKEN;
@@ -23,8 +29,12 @@ if (process.env.GH_TOKEN) {
   
   console.log('Configured auto-updater with authentication');
 } else {
-  console.warn('GH_TOKEN not found - using public repository access');
+  console.log('Using public repository access for updates');
 }
+
+// Additional configuration for better reliability
+autoUpdater.allowDowngrade = false;
+autoUpdater.allowPrerelease = false;
 
 // Data file path
 const documentsPath = app.getPath('documents');
