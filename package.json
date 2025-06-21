@@ -41,15 +41,11 @@
       "createDesktopShortcut": true,
       "shortcutName": "ExecHub"
     },
-    "afterSign": null,
-    "afterAllArtifactBuild": null,
     "publish": [
       {
         "provider": "github",
         "owner": "emilioh93",
-        "repo": "ExecHub",
-        "releaseType": "release",
-        "publishAutoUpdate": true
+        "repo": "ExecHub"
       }
     ]
   },
