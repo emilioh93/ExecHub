@@ -43,9 +43,21 @@ const builder = require("electron-builder");
     builder
         .build({
             publish: "always",
+            config: {
+                publish: [
+                    {
+                        provider: "github",
+                        owner: "emilioh93",
+                        repo: "ExecHub",
+                        releaseType: "release",
+                        publishAutoUpdate: true
+                    }
+                ]
+            }
         })
         .then(() => {
             console.log("✅ Build and release completed successfully.");
+            console.log("🎉 Release published automatically (not as draft)");
         })
         .catch((error) => {
             console.error("❌ Error during build/release:", error);
