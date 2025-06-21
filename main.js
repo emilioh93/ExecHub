@@ -9,6 +9,13 @@ autoUpdater.logger = require('electron-log');
 autoUpdater.logger.transports.file.level = 'info';
 autoUpdater.autoDownload = false;
 
+// Configure for private repository if GH_TOKEN is available
+if (process.env.GH_TOKEN) {
+  autoUpdater.requestHeaders = {
+    'Authorization': `token ${process.env.GH_TOKEN}`
+  };
+}
+
 // Data file path
 const documentsPath = app.getPath('documents');
 const exechubFolder = path.join(documentsPath, 'ExecHub');
@@ -144,7 +151,10 @@ app.whenReady().then(() => {
   // Check for updates after a delay (to not slow down app startup)
   setTimeout(() => {
     autoUpdater.checkForUpdates().catch(err => {
-      console.error('Error checking for updates:', err);
+      // Only log error if it's not a 404 (which happens with private repos)
+      if (!err.message.includes('404')) {
+        console.error('Error checking for updates:', err);
+      }
     });
   }, 3000);
 

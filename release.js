@@ -21,13 +21,13 @@ const builder = require("electron-builder");
         process.exit(1);
     }
 
-    // Paso 1: Bump de versión con git tag
+    // Step 1: Bump of version with git tag
     if (shell.exec(`npm version ${bump}`).code !== 0) {
         console.error("❌ Failed versioning");
         process.exit(1);
     }
 
-    // Paso 2: Hacer push del tag a GitHub
+    // Step 2: Push the tag to GitHub
     if (
         shell.exec(`git push`).code !== 0 ||
         shell.exec(`git push --tags`).code !== 0
@@ -36,7 +36,7 @@ const builder = require("electron-builder");
         process.exit(1);
     }
 
-    // Paso 3: Build y release
+    // Step 3: Build and release
     console.log("🚀 Starting build and release...");
     process.env.GH_TOKEN = ghToken;
 
