@@ -107,10 +107,14 @@ function createWindow() {
     menuBarVisible: false
   });
 
-  mainWindow.loadFile('src/index.html');
-  
-  // Commented for production - uncomment only for debugging
-  // mainWindow.webContents.openDevTools();
+  // Load from development server in dev mode, built files in production
+  const isDev = process.env.NODE_ENV === 'development';
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:5173');
+    // mainWindow.webContents.openDevTools();
+  } else {
+    mainWindow.loadFile('dist/index.html');
+  }
 }
 
 // Setup auto-updater events
