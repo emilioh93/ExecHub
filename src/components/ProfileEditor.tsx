@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Profile, Application } from '../types/electron';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Profile, Application, SearchableApplication } from '../types/electron';
+import Toast from './Toast';
+import ApplicationSearcher from './ApplicationSearcher';
 
 interface ProfileEditorProps {
   profile: Profile | null;
@@ -7,14 +9,18 @@ interface ProfileEditorProps {
   onCancel: () => void;
 }
 
-const ProfileEditor: React.FC<ProfileEditorProps> = ({
+const ProfileEditor = ({
   profile,
   onSave,
   onCancel,
-}) => {
+}: ProfileEditorProps) => {
   const [name, setName] = useState('');
   const [applications, setApplications] = useState<Application[]>([]);
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' | 'warning' } | null>(null);
+  const [showAppSearcher, setShowAppSearcher] = useState(false);
+  const [currentAppIndex, setCurrentAppIndex] = useState<number | null>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (profile) {
@@ -26,14 +32,22 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({
     }
   }, [profile]);
 
-  const handleAddApplication = () => {
+  const handleAddApplication = useCallback(() => {
+    // Add empty application and immediately open searcher
+    const newIndex = applications.length;
     setApplications([
       ...applications,
-      { name: 'New Application', path: '' }
+      { name: 'Nueva Aplicación', path: '' }
     ]);
-  };
+    
+    // Open searcher for the new application
+    setTimeout(() => {
+      setCurrentAppIndex(newIndex);
+      setShowAppSearcher(true);
+    }, 100);
+  }, [applications]);
 
-  const handleSelectFile = async (index: number) => {
+  const handleSelectFile = useCallback(async (index: number) => {
     try {
       const filePath = await window.electronAPI.selectFile();
       if (filePath) {
@@ -48,70 +62,116 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({
     } catch (error) {
       console.error('Error selecting file:', error);
     }
-  };
+  }, [applications]);
 
-  const handleRemoveApplication = (index: number) => {
+  const handleSearchApp = useCallback((index: number) => {
+    setCurrentAppIndex(index);
+    setShowAppSearcher(true);
+  }, []);
+
+  const handleAppSelected = useCallback((app: SearchableApplication) => {
+    if (currentAppIndex !== null) {
+      const newApps = [...applications];
+      newApps[currentAppIndex] = {
+        name: app.name,
+        path: app.path
+      };
+      setApplications(newApps);
+    }
+    setShowAppSearcher(false);
+    setCurrentAppIndex(null);
+  }, [applications, currentAppIndex]);
+
+  const handleCloseSearcher = useCallback(() => {
+    setShowAppSearcher(false);
+    setCurrentAppIndex(null);
+  }, []);
+
+  const handleRemoveApplication = useCallback((index: number) => {
     setApplications(applications.filter((_, i) => i !== index));
-  };
+  }, [applications]);
 
-  const handleUpdateAppName = (index: number, newName: string) => {
+  const handleUpdateAppName = useCallback((index: number, newName: string) => {
     const newApps = [...applications];
     newApps[index].name = newName;
     setApplications(newApps);
-  };
+  }, [applications]);
 
-  const handleSave = async () => {
+  const showToast = useCallback((message: string, type: 'error' | 'success' | 'warning') => {
+    setToast({ message, type });
+  }, []);
+
+  const hideToast = useCallback(() => {
+    setToast(null);
+  }, []);
+
+  const handleSave = useCallback(async () => {
     if (!name.trim()) {
-      alert('Please enter a profile name.');
+      showToast('Please enter a profile name.', 'error');
+      // Focus the name input after showing the error
+      setTimeout(() => {
+        nameInputRef.current?.focus();
+      }, 100);
       return;
     }
 
     const invalidApps = applications.filter(app => !app.path);
     if (invalidApps.length > 0) {
-      alert('All applications must have a valid path.');
+      showToast('All applications must have a valid path.', 'error');
       return;
     }
 
     setSaving(true);
     try {
       const profileToSave: Profile = {
-        id: profile?.id || Date.now().toString(),
+        id: profile?.id || '', // Let the backend assign the ID for new profiles
         name: name.trim(),
         applications
       };
 
+      console.log('Saving profile:', profileToSave);
       await onSave(profileToSave);
+      console.log('Profile saved successfully');
+      showToast('Profile saved successfully!', 'success');
     } catch (error) {
       console.error('Error saving profile:', error);
-      alert('Error saving profile: ' + (error as Error).message);
+      showToast('Error saving profile: ' + (error as Error).message, 'error');
     } finally {
       setSaving(false);
     }
-  };
+  }, [name, applications, profile, onSave, showToast]);
+
+  const handleSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    handleSave();
+  }, [handleSave]);
 
   return (
     <div className="flex-1 p-6">
       <div className="card max-w-4xl">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold">
-            {profile ? 'Edit Profile' : 'New Profile'}
-          </h2>
-          <div className="space-x-2">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="btn btn-primary"
-            >
-              {saving ? 'Saving...' : 'Save'}
-            </button>
-            <button
-              onClick={onCancel}
-              className="btn btn-secondary"
-            >
-              Cancel
-            </button>
+        <form onSubmit={handleSubmit}>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold">
+              {profile ? 'Edit Profile' : 'New Profile'}
+            </h2>
+
+            <div className="space-x-2">
+              <button
+                type="submit"
+                disabled={saving}
+                className="btn btn-primary"
+              >
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+              <button
+                type="button"
+                onClick={onCancel}
+                className="btn btn-secondary"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
-        </div>
 
         <div className="space-y-6">
           <div>
@@ -119,11 +179,20 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({
               Profile Name
             </label>
             <input
+              ref={nameInputRef}
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSave();
+                }
+              }}
               placeholder="Ex: iRacing"
               className="form-input"
+              required
+              autoFocus
             />
           </div>
 
@@ -133,6 +202,7 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({
                 Applications
               </label>
               <button
+                type="button"
                 onClick={handleAddApplication}
                 className="btn btn-primary text-sm"
               >
@@ -166,16 +236,26 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({
                     
                     <div className="flex space-x-2">
                       <button
+                        type="button"
+                        onClick={() => handleSearchApp(index)}
+                        className="btn btn-primary text-sm"
+                        title="Buscar aplicación"
+                      >
+                        🔍
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => handleSelectFile(index)}
                         className="btn btn-secondary text-sm"
-                        title="Browse for file"
+                        title="Buscar archivo"
                       >
                         📂
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleRemoveApplication(index)}
                         className="btn btn-danger text-sm"
-                        title="Remove application"
+                        title="Eliminar aplicación"
                       >
                         ❌
                       </button>
@@ -186,7 +266,26 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({
             )}
           </div>
         </div>
+        </form>
       </div>
+
+      {/* Application Searcher */}
+      {showAppSearcher && (
+        <ApplicationSearcher
+          onSelect={handleAppSelected}
+          onClose={handleCloseSearcher}
+          placeholder="Busca aplicaciones instaladas..."
+        />
+      )}
+
+      {/* Toast notifications */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
+      )}
     </div>
   );
 };

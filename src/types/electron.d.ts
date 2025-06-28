@@ -3,6 +3,12 @@ export interface Application {
   path: string;
 }
 
+export interface SearchableApplication {
+  name: string;
+  path: string;
+  type: 'executable';
+}
+
 export interface Profile {
   id: string;
   name: string;
@@ -35,6 +41,7 @@ export interface ElectronAPI {
   
   // File operations
   selectFile(): Promise<string | null>;
+  searchApplications(searchTerm?: string): Promise<SearchableApplication[]>;
   
   // Updates
   checkForUpdates(): Promise<any>;

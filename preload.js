@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // File selection
   selectFile: () => ipcRenderer.invoke('select-file'),
+  searchApplications: (searchTerm) => ipcRenderer.invoke('search-applications', searchTerm),
   
   // Application control
   launchProfile: (profileId) => ipcRenderer.invoke('launch-profile', profileId),

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Profile } from './types/electron';
 import { useProfiles } from './hooks/useProfiles';
 import { useUpdateStatus } from './hooks/useUpdateStatus';
@@ -14,54 +14,56 @@ function App() {
   const { profiles, loading, saveProfile, deleteProfile } = useProfiles();
   const updateStatus = useUpdateStatus();
 
-  const selectedProfile = profiles.find(p => p.id === selectedProfileId) || null;
+  const selectedProfile = useMemo(() => {
+    return profiles.find(p => p.id === selectedProfileId) || null;
+  }, [profiles, selectedProfileId]);
 
-  const handleSelectProfile = (profileId: string) => {
+  const handleSelectProfile = useCallback((profileId: string) => {
     setSelectedProfileId(profileId);
     setShowEditor(false);
     setShowSettings(false);
-  };
+  }, []);
 
-  const handleNewProfile = () => {
+  const handleNewProfile = useCallback(() => {
     setEditingProfile(null);
     setShowEditor(true);
     setShowSettings(false);
     setSelectedProfileId(null);
-  };
+  }, []);
 
-  const handleShowEditor = (profile?: Profile) => {
+  const handleShowEditor = useCallback((profile?: Profile) => {
     setEditingProfile(profile || null);
     setShowEditor(true);
     setShowSettings(false);
-  };
+  }, []);
 
-  const handleCloseEditor = () => {
+  const handleCloseEditor = useCallback(() => {
     setShowEditor(false);
     setEditingProfile(null);
-  };
+  }, []);
 
-  const handleSaveProfile = async (profile: Profile) => {
+  const handleSaveProfile = useCallback(async (profile: Profile) => {
     const savedProfile = await saveProfile(profile);
     setSelectedProfileId(savedProfile.id);
     setShowEditor(false);
     setEditingProfile(null);
-  };
+  }, [saveProfile]);
 
-  const handleDeleteProfile = async (profileId: string) => {
+  const handleDeleteProfile = useCallback(async (profileId: string) => {
     await deleteProfile(profileId);
     if (selectedProfileId === profileId) {
       setSelectedProfileId(null);
     }
-  };
+  }, [deleteProfile, selectedProfileId]);
 
-  const handleShowSettings = () => {
+  const handleShowSettings = useCallback(() => {
     setShowSettings(true);
     setShowEditor(false);
-  };
+  }, []);
 
-  const handleCloseSettings = () => {
+  const handleCloseSettings = useCallback(() => {
     setShowSettings(false);
-  };
+  }, []);
 
   if (loading) {
     return (

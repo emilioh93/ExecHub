@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn, exec } = require('child_process');
@@ -95,23 +95,68 @@ function loadProfiles() {
 let mainWindow;
 
 function createWindow() {
+  const isDev = process.env.NODE_ENV === 'development';
+  
   mainWindow = new BrowserWindow({
     width: 900,
     height: 700,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
+      enableRemoteModule: false,
+      preload: path.join(__dirname, 'preload.js'),
+      webSecurity: !isDev // Disable web security only in development for DevTools
     },
     autoHideMenuBar: true,
     menuBarVisible: false
   });
 
   // Load from development server in dev mode, built files in production
-  const isDev = process.env.NODE_ENV === 'development';
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
-    // mainWindow.webContents.openDevTools();
+    
+    // Open DevTools and ensure React is detected
+    mainWindow.webContents.once('dom-ready', () => {
+      mainWindow.webContents.openDevTools();
+      
+      // Inject script to help React DevTools detect React
+      mainWindow.webContents.executeJavaScript(`
+        if (typeof window !== 'undefined') {
+          // Force React DevTools to detect React
+          window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = window.__REACT_DEVTOOLS_GLOBAL_HOOK__ || {};
+          window.__REACT_DEVTOOLS_GLOBAL_HOOK__.isDisabled = false;
+          window.__REACT_DEVTOOLS_GLOBAL_HOOK__.supportsFiber = true;
+          console.log('React DevTools hook initialized');
+        }
+      `);
+    });
+    
+    // F12 shortcut to open/close DevTools
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      if (input.key === 'F12') {
+        if (mainWindow.webContents.isDevToolsOpened()) {
+          mainWindow.webContents.closeDevTools();
+        } else {
+          mainWindow.webContents.openDevTools();
+        }
+      }
+    });
+
+    // Context menu with "Inspect Element"
+    mainWindow.webContents.on('context-menu', (event, params) => {
+      const contextMenu = Menu.buildFromTemplate([
+        {
+          label: 'Inspect Element',
+          click: () => {
+            mainWindow.webContents.inspectElement(params.x, params.y);
+          }
+        },
+        { type: 'separator' },
+        { label: 'Reload', accelerator: 'CmdOrCtrl+R', click: () => mainWindow.reload() },
+        { label: 'Force Reload', accelerator: 'CmdOrCtrl+Shift+R', click: () => mainWindow.webContents.reloadIgnoringCache() }
+      ]);
+      contextMenu.popup();
+    });
   } else {
     mainWindow.loadFile('dist/index.html');
   }
@@ -157,22 +202,56 @@ function setupAutoUpdater() {
   });
 }
 
+// Install React DevTools in development
+async function installReactDevTools() {
+  const isDev = process.env.NODE_ENV === 'development';
+  if (isDev) {
+    try {
+      const installExtension = require('electron-devtools-installer').default;
+      const { REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS } = require('electron-devtools-installer');
+      
+      // Install React Developer Tools
+      const reactDevToolsName = await installExtension(REACT_DEVELOPER_TOOLS, {
+        loadExtensionOptions: {
+          allowFileAccess: true,
+        },
+      });
+      console.log(`Added Extension: ${reactDevToolsName}`);
+      
+      // Install Redux DevTools (optional, for future use)
+      const reduxDevToolsName = await installExtension(REDUX_DEVTOOLS, {
+        loadExtensionOptions: {
+          allowFileAccess: true,
+        },
+      });
+      console.log(`Added Extension: ${reduxDevToolsName}`);
+    } catch (error) {
+      console.error('Failed to install developer tools:', error);
+    }
+  }
+}
+
 // Create window when app is ready
-app.whenReady().then(() => {
-  createWindow();
-  setupAutoUpdater();
+app.whenReady().then(async () => {
+  await installReactDevTools();
   
-  // Check for updates after a delay (to not slow down app startup)  
+  // Small delay to ensure extensions are properly loaded
   setTimeout(() => {
-    autoUpdater.checkForUpdates().catch(err => {
-      // Silently ignore 404 errors for now, log others
-      if (err.message && err.message.includes('404')) {
-        console.log('Updates: No releases found yet');
-        return;
-      }
-      console.error('Error checking for updates:', err);
-    });
-  }, 3000);
+    createWindow();
+    setupAutoUpdater();
+    
+    // Check for updates after a delay (to not slow down app startup)  
+    setTimeout(() => {
+      autoUpdater.checkForUpdates().catch(err => {
+        // Silently ignore 404 errors for now, log others
+        if (err.message && err.message.includes('404')) {
+          console.log('Updates: No releases found yet');
+          return;
+        }
+        console.error('Error checking for updates:', err);
+      });
+    }, 3000);
+  }, 100);
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -264,7 +343,11 @@ ipcMain.handle('delete-profile', (event, profileId) => {
 // Select file
 ipcMain.handle('select-file', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
-    properties: ['openFile']
+    properties: ['openFile'],
+    filters: [
+      { name: 'Ejecutables', extensions: ['exe', 'msi', 'bat', 'cmd'] },
+      { name: 'Todos los archivos', extensions: ['*'] }
+    ]
   });
   
   if (!result.canceled && result.filePaths.length > 0) {
@@ -272,6 +355,104 @@ ipcMain.handle('select-file', async () => {
   }
   return null;
 });
+
+// Search for installed applications
+ipcMain.handle('search-applications', async (event, searchTerm = '') => {
+  const applications = [];
+  const searchLower = searchTerm.toLowerCase();
+  
+  try {
+    // Common application directories in Windows
+    const searchPaths = [
+      'C:\\Program Files',
+      'C:\\Program Files (x86)',
+      path.join(process.env.LOCALAPPDATA || '', 'Programs'),
+      path.join(process.env.APPDATA || '', 'Microsoft\\Windows\\Start Menu\\Programs'),
+      path.join(process.env.PROGRAMDATA || '', 'Microsoft\\Windows\\Start Menu\\Programs')
+    ];
+
+    for (const searchPath of searchPaths) {
+      if (fs.existsSync(searchPath)) {
+        await searchDirectory(searchPath, applications, searchLower, 0, 3); // Max depth 3
+      }
+    }
+
+    // Remove duplicates and sort by relevance
+    const uniqueApps = Array.from(new Map(applications.map(app => [app.path, app])).values());
+    
+    // Sort by relevance (exact matches first, then starts with, then contains)
+    uniqueApps.sort((a, b) => {
+      const aName = a.name.toLowerCase();
+      const bName = b.name.toLowerCase();
+      
+      if (searchTerm) {
+        const aExact = aName === searchLower;
+        const bExact = bName === searchLower;
+        if (aExact !== bExact) return aExact ? -1 : 1;
+        
+        const aStarts = aName.startsWith(searchLower);
+        const bStarts = bName.startsWith(searchLower);
+        if (aStarts !== bStarts) return aStarts ? -1 : 1;
+      }
+      
+      return aName.localeCompare(bName);
+    });
+
+    return uniqueApps.slice(0, 50); // Limit to 50 results
+  } catch (error) {
+    console.error('Error searching applications:', error);
+    return [];
+  }
+});
+
+// Helper function to search directory recursively
+async function searchDirectory(dirPath, applications, searchTerm, currentDepth, maxDepth) {
+  if (currentDepth > maxDepth) return;
+  
+  try {
+    const items = fs.readdirSync(dirPath);
+    
+    for (const item of items) {
+      const itemPath = path.join(dirPath, item);
+      
+      try {
+        const stats = fs.statSync(itemPath);
+        
+        if (stats.isFile()) {
+          const ext = path.extname(item).toLowerCase();
+          if (['.exe', '.msi'].includes(ext)) {
+            const name = path.basename(item, ext);
+            
+            // If there's a search term, filter by it
+            if (!searchTerm || name.toLowerCase().includes(searchTerm)) {
+              applications.push({
+                name: name,
+                path: itemPath,
+                type: 'executable'
+              });
+            }
+          }
+        } else if (stats.isDirectory() && currentDepth < maxDepth) {
+          // Skip some common directories that don't contain user applications
+          const skipDirs = ['system32', 'windows', 'temp', '$recycle.bin', 'programdata\\microsoft\\windows\\wer'];
+          const shouldSkip = skipDirs.some(skipDir => 
+            itemPath.toLowerCase().includes(skipDir.toLowerCase())
+          );
+          
+          if (!shouldSkip) {
+            await searchDirectory(itemPath, applications, searchTerm, currentDepth + 1, maxDepth);
+          }
+        }
+      } catch (statError) {
+        // Skip items that can't be accessed
+        continue;
+      }
+    }
+  } catch (error) {
+    // Skip directories that can't be accessed
+    return;
+  }
+}
 
 // Launch a profile
 ipcMain.handle('launch-profile', (event, profileId) => {
